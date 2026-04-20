@@ -147,6 +147,16 @@ import { ITerminalSandboxService, NullTerminalSandboxService } from '../../platf
 import { CrossAppIPCService, ICrossAppIPCService } from '../../platform/crossAppIpc/electron-main/crossAppIpcService.js';
 import ErrorTelemetry from '../../platform/telemetry/electron-main/errorTelemetry.js';
 
+// ─── AI Harness: Void Imports ───
+import { IMetricsService } from '../../workbench/contrib/void/common/metricsService.js';
+import { IVoidUpdateService } from '../../workbench/contrib/void/common/voidUpdateService.js';
+import { MetricsMainService } from '../../workbench/contrib/void/electron-main/metricsMainService.js';
+import { VoidMainUpdateService } from '../../workbench/contrib/void/electron-main/voidUpdateMainService.js';
+import { LLMMessageChannel } from '../../workbench/contrib/void/electron-main/sendLLMMessageChannel.js';
+import { VoidSCMService } from '../../workbench/contrib/void/electron-main/voidSCMMainService.js';
+import { IVoidSCMService } from '../../workbench/contrib/void/common/voidSCMTypes.js';
+import { MCPChannel } from '../../workbench/contrib/void/electron-main/mcpChannel.js';
+
 /**
  * The main VS Code application. There will only ever be one instance,
  * even if the user starts many instances (e.g. from the command line).
@@ -1201,6 +1211,11 @@ export class CodeApplication extends Disposable {
 		// Dev Only: CSS service (for ESM)
 		services.set(ICSSDevelopmentService, new SyncDescriptor(CSSDevelopmentService, undefined, true));
 
+		// ─── AI Harness: Void Services ───
+		services.set(IMetricsService, new SyncDescriptor(MetricsMainService, undefined, false));
+		services.set(IVoidUpdateService, new SyncDescriptor(VoidMainUpdateService, undefined, false));
+		services.set(IVoidSCMService, new SyncDescriptor(VoidSCMService, undefined, false));
+
 		// Init services that require it
 		await Promises.settled([
 			backupMainService.initialize(),
@@ -1379,6 +1394,22 @@ export class CodeApplication extends Disposable {
 		// Utility Process Worker
 		const utilityProcessWorkerChannel = ProxyChannel.fromService(accessor.get(IUtilityProcessWorkerMainService), disposables);
 		mainProcessElectronServer.registerChannel(ipcUtilityProcessWorkerChannelName, utilityProcessWorkerChannel);
+
+		// ─── AI Harness: Void IPC Channels ───
+		const metricsChannel = ProxyChannel.fromService(accessor.get(IMetricsService), disposables);
+		mainProcessElectronServer.registerChannel('void-channel-metrics', metricsChannel);
+
+		const voidUpdatesChannel = ProxyChannel.fromService(accessor.get(IVoidUpdateService), disposables);
+		mainProcessElectronServer.registerChannel('void-channel-update', voidUpdatesChannel);
+
+		const sendLLMMessageChannel = new LLMMessageChannel(accessor.get(IMetricsService));
+		mainProcessElectronServer.registerChannel('void-channel-llmMessage', sendLLMMessageChannel);
+
+		const voidSCMChannel = ProxyChannel.fromService(accessor.get(IVoidSCMService), disposables);
+		mainProcessElectronServer.registerChannel('void-channel-scm', voidSCMChannel);
+
+		const mcpVoidChannel = new MCPChannel();
+		mainProcessElectronServer.registerChannel('void-channel-mcp', mcpVoidChannel);
 	}
 
 	private async openFirstWindow(accessor: ServicesAccessor, initialProtocolUrls: IInitialProtocolUrls | undefined): Promise<ICodeWindow[]> {

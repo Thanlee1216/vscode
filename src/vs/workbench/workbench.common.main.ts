@@ -449,4 +449,7 @@ import './contrib/editTelemetry/browser/editTelemetry.contribution.js';
 // Opener
 import './contrib/opener/browser/opener.contribution.js';
 
+// ─── AI Harness: Void AI System ───
+import './contrib/void/browser/void.contribution.js';
+
 //#endregion
