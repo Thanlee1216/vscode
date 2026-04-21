@@ -18,6 +18,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { EndOfLinePreference } from '../../../../editor/common/model.js';
 import { ToolName } from '../common/toolsServiceTypes.js';
 import { IMCPService } from '../common/mcpService.js';
+import { IAiHarnessService } from '../common/aiHarnessService.js';
 
 export const EMPTY_MESSAGE = '(empty message)'
 
@@ -541,6 +542,7 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		@IVoidSettingsService private readonly voidSettingsService: IVoidSettingsService,
 		@IVoidModelService private readonly voidModelService: IVoidModelService,
 		@IMCPService private readonly mcpService: IMCPService,
+		@IAiHarnessService private readonly aiHarnessService: IAiHarnessService,
 	) {
 		super()
 	}
@@ -594,7 +596,17 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 
 		const persistentTerminalIDs = this.terminalToolService.listPersistentTerminalIds()
 		const systemMessage = chat_systemMessage({ workspaceFolders, openedURIs, directoryStr, activeURI, persistentTerminalIDs, chatMode, mcpTools, includeXMLToolDefinitions })
-		return systemMessage
+
+		// ─── AI Harness: inject base rules from vectorDB ───
+		let harnessContext = '';
+		try {
+			const baseRules = await this.aiHarnessService.loadBaseRules();
+			if (baseRules) {
+				harnessContext += `\n\n<ai_harness_rules>\n${baseRules}\n</ai_harness_rules>`;
+			}
+		} catch { /* MCP connection failure — continue without rules */ }
+
+		return systemMessage + harnessContext
 	}
 
 
@@ -681,7 +693,20 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 
 		const { disableSystemMessage } = this.voidSettingsService.state.globalSettings;
 		const fullSystemMessage = await this._generateChatMessagesSystemMessage(chatMode, specialToolFormat)
-		const systemMessage = disableSystemMessage ? '' : fullSystemMessage;
+
+		// ─── AI Harness: inject role prompt from vectorDB ───
+		let roleContext = '';
+		try {
+			const lastUserMsg = [...chatMessages].reverse().find(m => m.role === 'user');
+			if (lastUserMsg && lastUserMsg.role === 'user') {
+				const detected = await this.aiHarnessService.detectRole(lastUserMsg.content);
+				if (detected) {
+					roleContext = `\n\n<ai_harness_role name="${detected.role}">\n${detected.prompt}\n</ai_harness_role>`;
+				}
+			}
+		} catch { /* MCP failure — continue without role */ }
+
+		const systemMessage = disableSystemMessage ? '' : (fullSystemMessage + roleContext);
 
 		const modelSelectionOptions = this.voidSettingsService.state.optionsOfModelSelection['Chat'][modelSelection.providerName]?.[modelSelection.modelName]
 

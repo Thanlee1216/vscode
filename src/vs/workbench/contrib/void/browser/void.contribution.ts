@@ -83,3 +83,6 @@ import '../common/voidUpdateService.js'
 
 // model service
 import '../common/voidModelService.js'
+
+// ─── AI Harness ───
+import '../common/aiHarnessService.js'
