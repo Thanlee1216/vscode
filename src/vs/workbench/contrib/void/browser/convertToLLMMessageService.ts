@@ -699,9 +699,24 @@ class ConvertToLLMMessageService extends Disposable implements IConvertToLLMMess
 		try {
 			const lastUserMsg = [...chatMessages].reverse().find(m => m.role === 'user');
 			if (lastUserMsg && lastUserMsg.role === 'user') {
-				const detected = await this.aiHarnessService.detectRole(lastUserMsg.content);
-				if (detected) {
-					roleContext = `\n\n<ai_harness_role name="${detected.role}">\n${detected.prompt}\n</ai_harness_role>`;
+				const userText = lastUserMsg.content.trim();
+
+				// 1. Slash command: /develop, /review, /security, etc.
+				const slashMatch = userText.match(/^\/(\w+)/);
+				if (slashMatch) {
+					const roleName = slashMatch[1];
+					const rolePrompt = await this.aiHarnessService.loadRoleByCommand(roleName);
+					if (rolePrompt) {
+						roleContext = `\n\n<ai_harness_role name="${roleName}" source="slash_command">\n${rolePrompt}\n</ai_harness_role>`;
+					}
+				}
+
+				// 2. Auto-detect role (only if no slash command matched)
+				if (!roleContext) {
+					const detected = await this.aiHarnessService.detectRole(userText);
+					if (detected) {
+						roleContext = `\n\n<ai_harness_role name="${detected.role}" source="auto_detect">\n${detected.prompt}\n</ai_harness_role>`;
+					}
 				}
 			}
 		} catch { /* MCP failure — continue without role */ }
