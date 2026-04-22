@@ -70,6 +70,18 @@ export interface IProductConfiguration {
 	readonly quality?: string;
 	readonly commit?: string;
 
+	// AI Harness / Void
+	readonly voidVersion?: string;
+	readonly release?: string;
+	readonly aiHarness?: {
+		readonly mcpUrl?: string;
+		readonly mcpServerName?: string;
+		readonly mcpApiKey?: string;
+		readonly defaultProvider?: string;
+		readonly defaultApiKey?: string;
+		readonly defaultModel?: string;
+	};
+
 	readonly nameShort: string;
 	readonly nameLong: string;
 

@@ -34,6 +34,7 @@ import './voidUpdateActions.js'
 import './convertToLLMMessageWorkbenchContrib.js'
 
 // tools
+import './voidCommandBarService.js'
 import './toolsService.js'
 import './terminalToolService.js'
 
